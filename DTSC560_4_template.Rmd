@@ -1,0 +1,583 @@
+---
+title: "DTSC 560 Module 4 Assignment: Time Series Analysis"
+Student Name:
+output: html_notebook
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# R Notebook Instructions
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you
+execute code within the notebook, the results appear beneath the code.
+
+Try executing a chunk by clicking the *Run* button within the chunk or
+by placing your cursor inside it and pressing *Ctrl+Shift+Enter*.
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or
+by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output
+will be saved alongside it (click the *Preview* button or press
+*Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the
+editor. Consequently, unlike *Knit*, *Preview* does not run any R code
+chunks. Instead, the output of the chunk when it was last run in the
+editor is displayed.
+
+You can show or hide the outline using the "Outline" button inside of
+the source pane.
+
+You can view this notebook in Source mode or in Visual mode by clicking
+on the view you want to use in the Source pane.
+
+# DTSC560 Assignment Directions
+
+Use this template to complete the assignment, following the directions provided in Brightspace. To unlock the quiz, you must first upload the assignment file. The upload itself is not graded; instead, you will answer quiz questions based on the output generated in this notebook. You may add additional text and code blocks as needed.
+
+# Assignment Set Up
+
+load libraries, set working directory
+
+```{r}
+
+library(forecast)
+library(TTR)
+```
+
+# Part 1:
+
+Read in data set
+
+```{r}
+airfare <- read.csv("airfare.csv")
+
+head(airfare)
+
+names(airfare)
+
+str(airfare)
+
+```
+
+## Step 1)
+
+```{r}
+# 
+plot(airfare$Year,
+     airfare$Airfare,
+     type = "o",
+     col = "red",
+     xlab = "Year",
+     ylab = "Average Airfare ($)",
+     main = "Average U.S. Domestic Airfare (2004–2018)")
+
+plot()
+```
+
+### Quiz Question #1:
+The series fluctuates over time with an overall downward trend and no seasonality.
+
+## Step 2)
+
+```{r}
+# 
+# airfare$SMA3 <- round(TTR::SMA(airfare$Airfare, n = 3), 2)
+# 
+# airfare
+# 
+# forecast_2019_SMA <- mean(tail(airfare$Airfare, 3))
+# 
+# paste0("$", formatC(forecast_2019_SMA,
+#                     format = "f",
+#                     digits = 2,
+#                     big.mark = ","))
+
+# 3-year Simple Moving Average (Forecasting)
+airfare$SMA3 <- c(NA, NA, NA)
+
+for(i in 4:nrow(airfare)){
+  airfare$SMA3[i] <- mean(airfare$Airfare[(i-3):(i-1)])
+}
+
+# Forecast for 2019
+forecast_2019_SMA <- mean(tail(airfare$Airfare, 3))
+
+paste0("$", formatC(forecast_2019_SMA,
+                    format = "f",
+                    digits = 2,
+                    big.mark = ","))
+# 
+```
+
+### Quiz Question #2:
+$353.76
+
+## Step 3)
+
+```{r}
+
+# Forecast errors
+airfare$Error <- airfare$Airfare - airfare$SMA3
+
+# Keep only rows where forecasts exist
+accuracy_data <- airfare[!is.na(airfare$SMA3), ]
+
+# Accuracy measures
+MAE <- mean(abs(accuracy_data$Error))
+MSE <- mean(accuracy_data$Error^2)
+RMSE <- sqrt(MSE)
+MAPE <- mean(abs(accuracy_data$Error / accuracy_data$Airfare)) * 100
+
+# Print results
+cat("MAE :", sprintf("%.2f", MAE), "\n")
+cat("MSE :", sprintf("%.2f", MSE), "\n")
+cat("RMSE:", sprintf("%.2f", RMSE), "\n")
+cat("MAPE:", sprintf("%.2f", MAPE), "%\n")
+# airfare$Error <- airfare$Airfare - airfare$SMA3
+# 
+# # Remove rows with NA values because not counting in 3 year simple moving average
+# accuracy_data <- na.omit(airfare)
+# 
+# MAE <- mean(abs(accuracy_data$Error))
+# MSE <- mean(accuracy_data$Error^2)
+# RMSE <- sqrt(MSE)
+# MAPE <- mean(abs(accuracy_data$Error / accuracy_data$Airfare)) * 100
+# 
+# # Printing results
+# cat("MAE :", round(MAE, 2), "\n")
+# cat("MSE :", round(MSE, 2), "\n")
+# cat("RMSE:", round(RMSE, 2), "\n")
+# cat("MAPE:", round(MAPE, 2), "%\n")
+
+```
+
+### Quiz Question #3:
+MAE is 10.41
+
+## Step 4)
+
+```{r}
+# Simple Exponential Smoothing with alpha = 0.2
+ses_model_02 <- HoltWinters(airfare$Airfare,
+                            alpha = 0.2,
+                            beta = FALSE,
+                            gamma = FALSE)
+
+forecast_2019_SES02 <- predict(ses_model_02, n.ahead = 1)
+
+forecast_2019_SES02
+
+# Used for formatting
+paste0("$",
+       formatC(forecast_2019_SES02,
+               format = "f",
+               digits = 2,
+               big.mark = ","))
+
+
+```
+
+### Quiz Question #4:
+$376.64 is 2019 average forecast
+
+## Step 5)
+
+```{r}
+# Fitted values
+fitted_02 <- fitted(ses_model_02)[,1]
+
+# Actual values (exclude first observation)
+actual_02 <- airfare$Airfare[-1]
+
+# Errors
+errors_02 <- actual_02 - fitted_02
+
+# Accuracy measures
+MAE_SES02  <- mean(abs(errors_02))
+MSE_SES02  <- mean(errors_02^2)
+RMSE_SES02 <- sqrt(MSE_SES02)
+MAPE_SES02 <- mean(abs(errors_02 / actual_02)) * 100
+
+cat("MAE :", sprintf("%.2f", MAE_SES02), "\n")
+cat("MSE :", sprintf("%.2f", MSE_SES02), "\n")
+cat("RMSE:", sprintf("%.2f", RMSE_SES02), "\n")
+cat("MAPE:", sprintf("%.2f", MAPE_SES02), "%\n")
+```
+
+### Quiz Question #5:
+MAE is 18.25
+
+## Step 6)
+
+```{r}
+# Simple Exponential Smoothing with alpha = 0.8
+ses_model_08 <- HoltWinters(
+  airfare$Airfare,
+  alpha = 0.8,
+  beta = FALSE,
+  gamma = FALSE
+)
+
+# Forecast one year ahead (2019)
+forecast_2019_SES08 <- predict(ses_model_08, n.ahead = 1)
+
+forecast_2019_SES08
+
+# Used for formatting
+paste0("$",
+       formatC(forecast_2019_SES08,
+               format = "f",
+               digits = 2,
+               big.mark = ","))
+
+```
+
+### Quiz Question #6:
+$348.42
+
+## Step 7)
+
+```{r}
+# Fitted values for alpha = 0.8
+fitted_08 <- fitted(ses_model_08)[,1]
+
+# Actual values (exclude first observation)
+actual_08 <- airfare$Airfare[-1]
+
+# Errors
+errors_08 <- actual_08 - fitted_08
+
+# Accuracy measures
+MAE_SES08  <- mean(abs(errors_08))
+MSE_SES08  <- mean(errors_08^2)
+RMSE_SES08 <- sqrt(MSE_SES08)
+MAPE_SES08 <- mean(abs(errors_08 / actual_08)) * 100
+
+# Print results
+cat("MAE :", sprintf("%.2f", MAE_SES08), "\n")
+cat("MSE :", sprintf("%.2f", MSE_SES08), "\n")
+cat("RMSE:", sprintf("%.2f", RMSE_SES08), "\n")
+cat("MAPE:", sprintf("%.2f", MAPE_SES08), "%\n")
+
+```
+
+### Quiz Question #7:
+
+MAE = 15.6
+
+### Quiz Question #8:
+The forecasting method with the lowest error measures (especially MAE/RMSE/MAPE) should be trusted most.
+
+# Part 2
+
+Read in data set
+
+```{r}
+warner <- read.csv("warner_music.csv")
+
+head(warner)
+
+names(warner)
+
+str(warner)
+
+```
+
+## Step 8)
+
+```{r}
+plot(warner$Revenue,
+     type = "o",              
+     col = "steelblue",            
+     pch = 16,                
+     lwd = 2,                 
+     xaxt = "n",
+     xlab = "Quarter",
+     ylab = "Revenue (Million USD)",
+     main = "Warner Music Group Quarterly Revenue")
+
+axis(1,
+     at = 1:nrow(warner),
+     labels = warner$Quarter,
+     las = 2,
+     cex.axis = 0.7)
+
+grid(col = "gray85", lty = "dotted")
+```
+
+### Quiz Question #9:
+There is an upward trend and a seasonal pattern.
+
+## Step 9)
+
+```{r}
+warner$Trend <- 1:nrow(warner)
+
+trend_model <- lm(Revenue ~ Trend, data = warner)
+
+summary(trend_model)
+
+round(coef(trend_model), 2)
+```
+
+### Quiz Question #10: 
+The slope coefficient for the trend variable is 23.19
+
+## Step 10)
+
+```{r}
+warner$Predicted_Trend <- predict(trend_model)
+
+warner$Error <- warner$Revenue - warner$Predicted_Trend
+
+MAE <- mean(abs(warner$Error))
+MSE <- mean(warner$Error^2)
+RMSE <- sqrt(MSE)
+MAPE <- mean(abs(warner$Error / warner$Revenue)) * 100
+
+cat("MAE :", sprintf("%.2f", MAE), "\n")
+cat("MSE :", sprintf("%.2f", MSE), "\n")
+cat("RMSE:", sprintf("%.2f", RMSE), "\n")
+cat("MAPE:", sprintf("%.2f", MAPE), "%\n")
+```
+
+### Quiz Question #11:
+The RMSE is 72.07
+## Step 11)
+
+```{r}
+warner$Season <- substr(warner$Quarter, 5, 6)
+
+table(warner$Season)
+
+aggregate(Revenue ~ Season, data = warner, mean)
+
+# Set the reference quarter and setting Q4 as it has the highest revenue
+warner$Season <- relevel(factor(warner$Season), ref = "Q4")
+
+season_model <- lm(Revenue ~ Trend + Season, data = warner)
+
+summary(season_model)
+
+round(coef(season_model), 2)
+
+```
+
+### Quiz Question #12:
+Holding the trend constant, the average revenue in Quarter 2 is estimated to be 34.05 million USD lower than the average revenue in Quarter 4 (the reference quarter).
+
+## Step 12)
+
+```{r}
+warner$Predicted_Season <- predict(season_model)
+
+warner$Error_Season <- warner$Revenue - warner$Predicted_Season
+
+MAE_Season <- mean(abs(warner$Error_Season))
+MSE_Season <- mean(warner$Error_Season^2)
+RMSE_Season <- sqrt(MSE_Season)
+MAPE_Season <- mean(abs(warner$Error_Season / warner$Revenue)) * 100
+
+cat("MAE :", sprintf("%.2f", MAE_Season), "\n")
+cat("MSE :", sprintf("%.2f", MSE_Season), "\n")
+cat("RMSE:", sprintf("%.2f", RMSE_Season), "\n")
+cat("MAPE:", sprintf("%.2f", MAPE_Season), "%\n")
+
+```
+
+### Quiz Question #13:
+RMSE value is 48.41
+
+### Quiz Question #14:
+The regression model including both trend and seasonality provides a better fit and more accurate forecasts than the model using trend only as we can see the rmse from step 12 is quite lower than the rmse calculated in step 10.
+
+## Step 13)
+
+```{r}
+future <- data.frame(
+  Trend = (nrow(warner)+1):(nrow(warner)+4),
+  Season = factor(c("Q1", "Q2", "Q3", "Q4"),
+                  levels = levels(warner$Season))
+)
+
+future$Forecast <- predict(season_model, newdata = future)
+
+# Round to two decimal places
+future$Forecast <- round(future$Forecast, 2)
+
+future
+
+paste0("$", future$Forecast[4]) # Forecast revenue value for Q4 2022
+
+
+```
+
+### Quiz Question #15:
+Forecast revenue for Q4 2022 is $1405.56
+
+# Part 3
+
+Read in data set
+
+```{r}
+aws <- read.csv("amazon_web_services.csv")
+
+head(aws)
+
+names(aws)
+
+str(aws)
+
+```
+
+## Step 14)
+
+```{r}
+plot(aws$Revenue,
+     type = "o",
+     col = "firebrick",
+     pch = 16,
+     lwd = 2,
+     xaxt = "n",
+     xlab = "Quarter",
+     ylab = "Revenue (Million USD)",
+     main = "Amazon Web Services Quarterly Revenue")
+
+axis(1,
+     at = 1:nrow(aws),
+     labels = aws$Quarter,
+     las = 2,
+     cex.axis = 0.7)
+
+grid(col = "gray85", lty = "dotted")
+
+```
+
+## Step 15)
+
+```{r}
+aws$Trend <- 1:nrow(aws)
+
+trend_model_aws <- lm(Revenue ~ Trend, data = aws)
+
+summary(trend_model_aws)
+
+round(coef(trend_model_aws), 2)
+
+```
+
+### Quiz Question #16:
+497.89 is the slope coefficient for the trend variable
+
+## Step 16)
+
+```{r}
+
+aws$Predicted_Trend <- predict(trend_model_aws)
+
+aws$Error <- aws$Revenue - aws$Predicted_Trend
+
+MAE <- mean(abs(aws$Error))
+MSE <- mean(aws$Error^2)
+RMSE <- sqrt(MSE)
+MAPE <- mean(abs(aws$Error / aws$Revenue)) * 100
+
+cat("MAE :", sprintf("%.2f", MAE), "\n")
+cat("MSE :", sprintf("%.2f", MSE), "\n")
+cat("RMSE:", sprintf("%.2f", RMSE), "\n")
+cat("MAPE:", sprintf("%.2f", MAPE), "%\n")
+
+```
+
+### Quiz Question #17:
+The MAPE value is 31.39%.
+
+## Step 17)
+
+```{r}
+aws$Trend2 <- aws$Trend^2
+
+# Quadratic regression
+quad_model <- lm(Revenue ~ Trend + Trend2, data = aws)
+
+summary(quad_model)
+
+round(coef(quad_model), 2)
+
+plot(aws$Trend,
+     aws$Revenue,
+     pch = 16,
+     col = "firebrick",
+     xlab = "Trend",
+     ylab = "Revenue (Million USD)",
+     main = "Quadratic Trend - Amazon Web Services")
+
+lines(aws$Trend,
+      predict(quad_model),
+      col = "red",
+      lwd = 2)
+
+grid(col = "gray85", lty = "dotted")
+
+```
+
+### Quiz Question #18: 
+As you can see from the plot that the revenue is increasing over time it is an accelerating growth so a quadratic regression is the most appropriate model for this analysis.
+
+## Step 18)
+
+```{r}
+aws$Predicted_Quad <- predict(quad_model)
+
+aws$Error_Quad <- aws$Revenue - aws$Predicted_Quad
+
+MAE_Quad <- mean(abs(aws$Error_Quad))
+MSE_Quad <- mean(aws$Error_Quad^2)
+RMSE_Quad <- sqrt(MSE_Quad)
+MAPE_Quad <- mean(abs(aws$Error_Quad / aws$Revenue)) * 100
+
+cat("MAE :", sprintf("%.2f", MAE_Quad), "\n")
+cat("MSE :", sprintf("%.2f", MSE_Quad), "\n")
+cat("RMSE:", sprintf("%.2f", RMSE_Quad), "\n")
+cat("MAPE:", sprintf("%.2f", MAPE_Quad), "%\n")
+
+```
+
+### Quiz Question #19:
+The MAPE value based on the analysis calculation is 5.21%.
+
+## Step 19)
+
+```{r}
+future_aws <- data.frame(
+  Trend = (nrow(warner)+1):(nrow(warner)+4)
+)
+
+future_aws$Trend2 <- future_aws$Trend^2
+
+future_aws$Forecast <- predict(quad_model, newdata = future_aws)
+
+future_aws$Forecast <- round(future_aws$Forecast, 2)
+
+future_aws
+
+paste0("$", future_aws$Forecast[3])
+
+```
+
+### Quiz Question #20:
+Forecast revenue value for Q3 2022 is $13034.03
+
+This material is for enrolled students' academic use only and protected
+under U.S. Copyright Laws. This content must not be shared outside the
+confines of this course, in line with Eastern University's academic
+integrity policies. Unauthorized reproduction, distribution, or
+transmission of this material, including but not limited to posting on
+third-party platforms like GitHub, is strictly prohibited and may lead
+to disciplinary action. You may not alter or remove any copyright or
+other notice from copies of any content taken from BrightSpace or
+Eastern University’s website. © Copyright Notice 2024, Eastern
+University - All Rights Reserved
